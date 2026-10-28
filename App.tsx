@@ -1,9 +1,42 @@
-import React from 'react';
-import { SafeAreaView, View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { SafeAreaView, View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert } from 'react-native';
 
 const App = () => {
-  const handleSend = () => Alert.alert('إرسال', 'سيتم فتح شاشة تحويل الرصيد قريباً');
-  const handleReceive = () => Alert.alert('استلام', 'سيتم عرض كود الـ QR الخاص بك لاستلام USDT');
+  const [sendModalVisible, setSendModalVisible] = useState(false);
+  const [amount, setAmount] = useState('');
+  const [balance, setBalance] = useState(1250.00);
+  
+  // حالة جديدة لتخزين سجل المعاملات
+  const [transactions, setTransactions] = useState([
+    { id: '1', title: 'إيداع من Binance', amount: 500.00, type: 'positive' }
+  ]);
+
+  const confirmSend = () => {
+    const numAmount = parseFloat(amount);
+    if (!amount || isNaN(numAmount) || numAmount <= 0) {
+      Alert.alert('خطأ', 'الرجاء إدخال مبلغ صحيح');
+      return;
+    }
+    if (numAmount > balance) {
+      Alert.alert('رصيد غير كافٍ', 'المبلغ المطلوب أكبر من رصيدك الحالي');
+      return;
+    }
+    
+    // تحديث الرصيد
+    setBalance(balance - numAmount);
+    
+    // إضافة العملية الجديدة إلى أعلى سجل المعاملات
+    const newTransaction = {
+      id: Math.random().toString(),
+      title: 'تحويل صادر',
+      amount: numAmount,
+      type: 'negative'
+    };
+    setTransactions([newTransaction, ...transactions]);
+    
+    setSendModalVisible(false);
+    setAmount('');
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -14,14 +47,14 @@ const App = () => {
 
         <View style={styles.balanceCard}>
           <Text style={styles.balanceLabel}>الرصيد الإجمالي (USDT)</Text>
-          <Text style={styles.balanceAmount}>$ 1,250.00</Text>
+          <Text style={styles.balanceAmount}>$ {balance.toFixed(2)}</Text>
         </View>
 
         <View style={styles.actionsContainer}>
-          <TouchableOpacity style={styles.actionButton} onPress={handleSend}>
+          <TouchableOpacity style={styles.actionButton} onPress={() => setSendModalVisible(true)}>
             <Text style={styles.actionText}>إرسال ↗️</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton} onPress={handleReceive}>
+          <TouchableOpacity style={styles.actionButton} onPress={() => Alert.alert('استلام', 'كود QR قيد التطوير')}>
             <Text style={styles.actionText}>استلام ↙️</Text>
           </TouchableOpacity>
         </View>
@@ -35,19 +68,45 @@ const App = () => {
           </View>
         </View>
 
-        {/* سجل المعاملات */}
         <View style={styles.transactionsSection}>
           <Text style={styles.sectionTitle}>المعاملات الأخيرة</Text>
-          <View style={styles.transactionItem}>
-            <Text style={styles.transactionTitle}>إيداع من Binance</Text>
-            <Text style={styles.transactionAmountPositive}>+ $ 500.00</Text>
-          </View>
-          <View style={styles.transactionItem}>
-            <Text style={styles.transactionTitle}>دفع اشتراك Netflix</Text>
-            <Text style={styles.transactionAmountNegative}>- $ 15.99</Text>
-          </View>
+          {/* عرض المعاملات بشكل ديناميكي */}
+          {transactions.map((tx) => (
+            <View key={tx.id} style={styles.transactionItem}>
+              <Text style={styles.transactionTitle}>{tx.title}</Text>
+              <Text style={tx.type === 'positive' ? styles.transactionAmountPositive : styles.transactionAmountNegative}>
+                {tx.type === 'positive' ? '+' : '-'} $ {tx.amount.toFixed(2)}
+              </Text>
+            </View>
+          ))}
         </View>
       </ScrollView>
+
+      <Modal visible={sendModalVisible} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>إرسال أموال (USDT)</Text>
+            
+            <TextInput 
+              style={styles.input} 
+              placeholder="أدخل المبلغ..." 
+              placeholderTextColor="#888"
+              keyboardType="numeric"
+              value={amount}
+              onChangeText={setAmount}
+            />
+            
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setSendModalVisible(false)}>
+                <Text style={styles.modalBtnText}>إلغاء</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={confirmSend}>
+                <Text style={styles.modalBtnText}>تأكيد الإرسال</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -74,6 +133,15 @@ const styles = StyleSheet.create({
   transactionTitle: { color: '#ffffff', fontSize: 16 },
   transactionAmountPositive: { color: '#00FFA3', fontSize: 16, fontWeight: 'bold' },
   transactionAmountNegative: { color: '#FF5252', fontSize: 16, fontWeight: 'bold' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
+  modalContent: { backgroundColor: '#1E1E1E', width: '85%', padding: 25, borderRadius: 15, borderWidth: 1, borderColor: '#333' },
+  modalTitle: { color: '#fff', fontSize: 20, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
+  input: { backgroundColor: '#2C2C2C', color: '#fff', padding: 15, borderRadius: 10, fontSize: 18, textAlign: 'center', marginBottom: 20 },
+  modalActions: { flexDirection: 'row', justifyContent: 'space-between' },
+  modalBtn: { flex: 1, padding: 12, borderRadius: 10, alignItems: 'center', marginHorizontal: 5 },
+  cancelBtn: { backgroundColor: '#FF5252' },
+  confirmBtn: { backgroundColor: '#00FFA3' },
+  modalBtnText: { color: '#121212', fontSize: 16, fontWeight: 'bold' },
 });
 
 export default App;
